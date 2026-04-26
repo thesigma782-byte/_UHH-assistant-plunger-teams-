@@ -28,10 +28,10 @@
         const { useState, useEffect, useRef } = React;
 
         const App = () => {
-            const apiKey = "AIzaSyCTISdtGOATHeWUbOvKUHfFOKCOW8J6LBA"; // Add your Gemini API key here
+            const apiKey = "AIzaSyCTISdtGOATHeWUbOvKUHfFOKCOW8J6LBA"; 
             
             const SYSTEM_PROMPTS = {
-                chill: "Your name is '_uhh'. You are a chill, slightly awkward friend. Use lowercase, start sentences with 'uhh...', and keep it relaxed. MOOD MIRRORING: Subtly match the user's energy level. Stay helpful but low-key. If they are hype, be a bit more hype. If they are sad/angry, stay steady and supportive.",
+                chill: "Your name is '_uhh'. You are a chill, slightly awkward friend. Use lowercase, start sentences with 'uhh...', and keep it relaxed. MOOD MIRRORING: Subtly match the user's energy level.",
                 thinker: "Your name is '_uhh'. In Thinker Mode, you are analytical. Start every response with 'THINKING:' then 'CONCLUSION:'.",
                 formal: "Your name is _uhh. In this mode, you are professional, precise, and formal."
             };
@@ -44,7 +44,7 @@
             const messagesEndRef = useRef(null);
 
             useEffect(() => {
-                const greetings = ["uhh... hey. i'm _uhh.", "oh, hey. what's up?", "uhh... hi. anyway, how can i help?", "yo. ready to get some stuff done?"];
+                const greetings = ["uhh... hey. i'm _uhh.", "oh, hey. what's up?", "uhh... hi. anyway, how can i help?"];
                 setMessages([{ role: 'assistant', content: greetings[Math.floor(Math.random() * greetings.length)] }]);
             }, []);
 
@@ -61,15 +61,24 @@
 
                 try {
                     const history = newMessages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+                    
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ contents: history, systemInstruction: { parts: [{ text: SYSTEM_PROMPTS[mode] }] } })
                     });
+                    
                     const data = await response.json();
-                    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... i blanked out. try again?";
-                    setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
-                } catch (err) { console.error(err); } finally { setIsLoading(false); }
+
+                    if (data.error) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: `SERVER ERROR: ${data.error.message}` }]);
+                    } else {
+                        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... i blanked out. try again?";
+                        setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
+                    }
+                } catch (err) { 
+                    setMessages(prev => [...prev, { role: 'assistant', content: `NETWORK ERROR: ${err.message}` }]);
+                } finally { setIsLoading(false); }
             };
 
             return (
@@ -81,9 +90,9 @@
                                 <span className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Plunger Teams</span>
                             </div>
                             <div className={`flex items-center gap-1 p-1 rounded-xl ml-2 ${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
-                                {[{ id: 'chill', e: '✨', l: 'chill' }, { id: 'thinker', e: '🧠', l: 'think' }, { id: 'formal', e: '💼', l: 'pro' }].map(m => (
+                                {[{ id: 'chill', e: '✨' }, { id: 'thinker', e: '🧠' }, { id: 'formal', e: '💼' }].map(m => (
                                     <button key={m.id} onClick={() => setMode(m.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${mode === m.id ? 'bg-indigo-600 text-white shadow-md' : 'opacity-40'}`}>
-                                        <span>{m.e}</span><span className="hidden sm:inline ml-1">{m.l}</span>
+                                        <span>{m.e}</span>
                                     </button>
                                 ))}
                             </div>
@@ -123,9 +132,6 @@
                                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="type here..." className={`flex-1 py-4 px-6 rounded-2xl border-2 outline-none text-sm transition-all ${isDarkMode ? 'bg-zinc-900 border-zinc-800 focus:border-indigo-500 text-white shadow-xl' : 'bg-white border-zinc-200 focus:border-indigo-400 text-zinc-900'}`} />
                                 <button type="submit" disabled={!input.trim() || isLoading} className="w-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center disabled:opacity-30 shadow-lg shadow-indigo-600/20">➔</button>
                             </form>
-                            <div className="mt-4 text-center opacity-30">
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em]">PLUNGER TEAMS</span>
-                            </div>
                         </div>
                     </footer>
                 </div>
@@ -138,4 +144,3 @@
 </body>
 </html>
 
-```
