@@ -10,11 +10,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; overflow: hidden; touch-action: manipulation; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; background: #09090b; color: #f4f4f5; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .animate-msg { animation: slideUp 0.25s ease-out forwards; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-msg { animation: slideUp 0.2s ease-out forwards; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -23,95 +23,80 @@
         const { useState, useEffect, useRef } = React;
 
         const App = () => {
-            const apiKey = "AIzaSyBzZoAyTCaC6ElOAQ6i6TJzgArVqOucz_w"; 
-            const SYSTEM_PROMPTS = {
-                chill: "Your name is '_uhh'. Be a chill friend. Use lowercase and start with 'uhh...'.",
-                thinker: "Your name is '_uhh'. Use 'THINKING:' then 'CONCLUSION:'.",
-                formal: "Your name is _uhh. Be professional."
+            // YOUR NEW API KEY APPLIED
+            const apiKey = "AIzaSyCkQTUwtVWtzcC1_IO7Bya5nE8KYTkhtr4"; 
+            
+            const PROMPTS = {
+                chill: "Your name is '_uhh'. You're a chill friend. Use lowercase and start with 'uhh...'.",
+                thinker: "Your name is '_uhh'. Always start with 'THINKING:' then 'CONCLUSION:'.",
+                formal: "Your name is _uhh. Speak professionally and politely."
             };
 
-            const [messages, setMessages] = useState([{ role: 'assistant', content: "uhh... hi. i'm _uhh. what's up?" }]);
+            const [messages, setMessages] = useState([{ role: 'assistant', content: "uhh... hi. i'm _uhh. new key, who's this?" }]);
             const [input, setInput] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [mode, setMode] = useState('chill');
-            const messagesEndRef = useRef(null);
+            const endRef = useRef(null);
 
-            useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
+            useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
 
             const handleSend = async (e) => {
                 e.preventDefault();
                 if (!input.trim() || isLoading) return;
+                
                 const userText = input.trim();
                 setInput('');
                 setIsLoading(true);
-                const newMessages = [...messages, { role: 'user', content: userText }];
-                setMessages(newMessages);
+                
+                const currentChat = [...messages, { role: 'user', content: userText }];
+                setMessages(currentChat);
 
                 try {
-                    const payload = {
-                        contents: [
-                            { role: 'user', parts: [{ text: `CONTEXT: ${SYSTEM_PROMPTS[mode]}` }] },
-                            { role: 'model', parts: [{ text: "understood." }] },
-                            ...newMessages.map(m => ({ 
-                                role: m.role === 'assistant' ? 'model' : 'user', 
-                                parts: [{ text: m.content }] 
-                            }))
-                        ]
-                    };
+                    // Using the v1beta endpoint for maximum compatibility with the newest key
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
                     
-                    // SWITCHED TO STABLE v1 AND GEMINI-PRO
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({
+                            contents: [
+                                { role: 'user', parts: [{ text: `SYSTEM_RULE: ${PROMPTS[mode]}` }] },
+                                { role: 'model', parts: [{ text: "understood." }] },
+                                ...currentChat.map(m => ({
+                                    role: m.role === 'assistant' ? 'model' : 'user',
+                                    parts: [{ text: m.content }]
+                                }))
+                            ]
+                        })
                     });
-                    
+
                     const data = await response.json();
+                    
                     if (data.error) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: `ERROR: ${data.error.message}` }]);
+                        setMessages(prev => [...prev, { role: 'assistant', content: `SERVER_ERROR: ${data.error.message}` }]);
                     } else {
-                        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... i blanked out.";
-                        setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
+                        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... connection lost.";
+                        setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
                     }
-                } catch (err) { 
-                    setMessages(prev => [...prev, { role: 'assistant', content: `CONNECTION ERROR: ${err.message}` }]);
-                } finally { setIsLoading(false); }
+                } catch (err) {
+                    setMessages(prev => [...prev, { role: 'assistant', content: "NETWORK_ERROR: check your connection." }]);
+                } finally {
+                    setIsLoading(false);
+                }
             };
 
             return (
-                <div className="flex flex-col h-screen w-full bg-zinc-950 text-zinc-100">
-                    <header className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex flex-col h-screen w-full max-w-md mx-auto border-x border-zinc-800">
+                    <header className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/50 backdrop-blur-md sticky top-0 z-10">
                         <h1 className="font-black text-xl tracking-tighter">_uhh</h1>
-                        <div className="flex gap-2">
-                             <button onClick={() => setMode('chill')} className={`px-3 py-1 rounded-lg ${mode === 'chill' ? 'bg-indigo-600' : 'bg-zinc-800'}`}>✨</button>
-                             <button onClick={() => setMode('thinker')} className={`px-3 py-1 rounded-lg ${mode === 'thinker' ? 'bg-indigo-600' : 'bg-zinc-800'}`}>🧠</button>
-                             <button onClick={() => setMode('formal')} className={`px-3 py-1 rounded-lg ${mode === 'formal' ? 'bg-indigo-600' : 'bg-zinc-800'}`}>💼</button>
+                        <div className="flex gap-1.5">
+                             <button onClick={() => setMode('chill')} className={`p-2 rounded-lg transition-all ${mode === 'chill' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>✨</button>
+                             <button onClick={() => setMode('thinker')} className={`p-2 rounded-lg transition-all ${mode === 'thinker' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>🧠</button>
+                             <button onClick={() => setMode('formal')} className={`p-2 rounded-lg transition-all ${mode === 'formal' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>💼</button>
                         </div>
                     </header>
-                    <main className="flex-1 overflow-y-auto p-4 hide-scrollbar">
-                        <div className="max-w-2xl mx-auto space-y-4">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-msg`}>
-                                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-indigo-600' : 'bg-zinc-900 border border-zinc-800'}`}>
-                                        {msg.content}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div ref={messagesEndRef} />
-                    </main>
-                    <footer className="p-4 bg-zinc-950">
-                        <form onSubmit={handleSend} className="max-w-2xl mx-auto flex gap-2">
-                            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="type here..." className="flex-1 p-4 rounded-2xl bg-zinc-900 border border-zinc-800 outline-none text-sm text-white" />
-                            <button type="submit" className="w-12 h-12 flex items-center justify-center bg-indigo-600 rounded-2xl">➔</button>
-                        </form>
-                    </footer>
-                </div>
-            );
-        };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                    <main className="flex-1 overflow-y-auto p-4 space-y-4 hide-scrollbar">
+                        {messages.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-msg`}>
+                                <div className={`max-w-[85%] p-3.5 rounded-2xl
