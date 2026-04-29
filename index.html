@@ -8,13 +8,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; overflow: hidden; background: #09090b; color: #f4f4f5; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .animate-msg { animation: slideUp 0.2s ease-out forwards; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { margin: 0; background: #09090b; color: white; font-family: sans-serif; overflow: hidden; }
+        .chat-box { height: calc(100vh - 140px); overflow-y: auto; scrollbar-width: none; }
     </style>
 </head>
 <body>
@@ -23,80 +19,71 @@
         const { useState, useEffect, useRef } = React;
 
         const App = () => {
-            // YOUR NEW API KEY APPLIED
-            const apiKey = "AIzaSyCkQTUwtVWtzcC1_IO7Bya5nE8KYTkhtr4"; 
-            
-            const PROMPTS = {
-                chill: "Your name is '_uhh'. You're a chill friend. Use lowercase and start with 'uhh...'.",
-                thinker: "Your name is '_uhh'. Always start with 'THINKING:' then 'CONCLUSION:'.",
-                formal: "Your name is _uhh. Speak professionally and politely."
-            };
-
-            const [messages, setMessages] = useState([{ role: 'assistant', content: "uhh... hi. i'm _uhh. new key, who's this?" }]);
+            const apiKey = "AIzaSyCkQTUwtVWtzcC1_IO7Bya5nE8KYTkhtr4";
+            const [messages, setMessages] = useState([{ role: 'assistant', content: "uhh... hi. i'm _uhh. fixed the screen." }]);
             const [input, setInput] = useState('');
-            const [isLoading, setIsLoading] = useState(false);
-            const [mode, setMode] = useState('chill');
+            const [loading, setLoading] = useState(false);
             const endRef = useRef(null);
 
-            useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
+            useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-            const handleSend = async (e) => {
+            const sendMessage = async (e) => {
                 e.preventDefault();
-                if (!input.trim() || isLoading) return;
-                
+                if (!input.trim() || loading) return;
+
                 const userText = input.trim();
+                const newChat = [...messages, { role: 'user', content: userText }];
+                setMessages(newChat);
                 setInput('');
-                setIsLoading(true);
-                
-                const currentChat = [...messages, { role: 'user', content: userText }];
-                setMessages(currentChat);
+                setLoading(true);
 
                 try {
-                    // Using the v1beta endpoint for maximum compatibility with the newest key
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
-                    
-                    const response = await fetch(url, {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [
-                                { role: 'user', parts: [{ text: `SYSTEM_RULE: ${PROMPTS[mode]}` }] },
-                                { role: 'model', parts: [{ text: "understood." }] },
-                                ...currentChat.map(m => ({
-                                    role: m.role === 'assistant' ? 'model' : 'user',
-                                    parts: [{ text: m.content }]
-                                }))
-                            ]
+                            contents: newChat.map(m => ({
+                                role: m.role === 'assistant' ? 'model' : 'user',
+                                parts: [{ text: m.content }]
+                            }))
                         })
                     });
-
-                    const data = await response.json();
-                    
-                    if (data.error) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: `SERVER_ERROR: ${data.error.message}` }]);
-                    } else {
-                        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... connection lost.";
-                        setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-                    }
+                    const data = await res.json();
+                    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "uhh... error.";
+                    setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
                 } catch (err) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: "NETWORK_ERROR: check your connection." }]);
+                    setMessages(prev => [...prev, { role: 'assistant', content: "uhh... network error." }]);
                 } finally {
-                    setIsLoading(false);
+                    setLoading(false);
                 }
             };
 
             return (
-                <div className="flex flex-col h-screen w-full max-w-md mx-auto border-x border-zinc-800">
-                    <header className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/50 backdrop-blur-md sticky top-0 z-10">
-                        <h1 className="font-black text-xl tracking-tighter">_uhh</h1>
-                        <div className="flex gap-1.5">
-                             <button onClick={() => setMode('chill')} className={`p-2 rounded-lg transition-all ${mode === 'chill' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>✨</button>
-                             <button onClick={() => setMode('thinker')} className={`p-2 rounded-lg transition-all ${mode === 'thinker' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>🧠</button>
-                             <button onClick={() => setMode('formal')} className={`p-2 rounded-lg transition-all ${mode === 'formal' ? 'bg-indigo-600' : 'bg-zinc-900 opacity-40'}`}>💼</button>
-                        </div>
+                <div className="flex flex-col h-screen max-w-lg mx-auto border-x border-zinc-800 bg-zinc-950">
+                    <header className="p-4 border-b border-zinc-800 flex justify-between items-center">
+                        <h1 className="font-bold text-xl">_uhh</h1>
+                        <span className="text-xs text-zinc-500">v1.5-flash</span>
                     </header>
+                    <div className="flex-1 p-4 chat-box space-y-4">
+                        {messages.map((m, i) => (
+                            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`p-3 rounded-2xl max-w-[80%] text-sm ${m.role === 'user' ? 'bg-indigo-600' : 'bg-zinc-900 border border-zinc-800'}`}>
+                                    {m.content}
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={endRef} />
+                    </div>
+                    <form onSubmit={sendMessage} className="p-4 bg-zinc-950 border-t border-zinc-900 flex gap-2">
+                        <input value={input} onChange={e => setInput(e.target.value)} className="flex-1 bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-sm outline-none" placeholder="talk to me..." />
+                        <button className="bg-indigo-600 px-6 rounded-xl">➔</button>
+                    </form>
+                </div>
+            );
+        };
 
-                    <main className="flex-1 overflow-y-auto p-4 space-y-4 hide-scrollbar">
-                        {messages.map((msg, i) => (
-                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-msg`}>
-                                <div className={`max-w-[85%] p-3.5 rounded-2xl
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
